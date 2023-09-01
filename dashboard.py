@@ -33,6 +33,9 @@ server = app.server
 
 # https://dash.plotly.com/tutorial
 # https://dash.plotly.com/basic-callbacks
+# graficos
+# https://dash.plotly.com/interactive-graphing
+#
 # https://stackoverflow.com/questions/55946082/dash-output-with-multiple-inputs
 # df = pd.read_csv("https://media.githubusercontent.com/media/microsoft/Bing-COVID-19-Data/master/data/Bing-COVID19-Data.csv", delimiter=",", encoding="utf-8")
 #df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/gapminder2007.csv')
@@ -133,7 +136,18 @@ app.layout = html.Div(
                     dcc.Graph(figure={}, id='data-mapa')
                 ),
             ]
-        )
+        ),
+        # html.Div(
+        #     dcc.Slider(
+        #         df['Updated'].min(),
+        #         df['Updated'].max(),
+        #         step=None,
+        #         id='crossfilter-Updated--slider',
+        #         value=df['Updated'].max(),
+        #         marks={str(Updated): str(Updated) for Updated in df['Updated'].unique()}
+        #     ),
+        #     style={'width': '49%', 'padding': '0px 20px 20px 20px'}
+        # )
     ]
 )
 
@@ -189,21 +203,24 @@ def update_graph_linha(col_chosen, calc_Chosen, demo_dropdown):
     return fig
 
 @app.callback(
-    Output(component_id='data-mapa', component_property='figure')
-    # Input(component_id='itens', component_property='value'),
+    Output(component_id='data-mapa', component_property='figure'),
+    # Input(component_id='itens', component_property='value')
     # Input(component_id='inputSoma', component_property='value'),
-    # Input(component_id='demo-dropdown', component_property='value')
+    Input(component_id='demo-dropdown', component_property='value')
 )
-def plotMap():
-    fig = px.choropleth_mapbox(df, geojson=counties, locations='fips', color='unemp',
+def plotMap(demo_dropdown):
+    fig = px.choropleth_mapbox(df, 
+                            geojson=counties, 
+                            locations='fips', 
+                            color='unemp',
                             color_continuous_scale="Viridis",
                             range_color=(0, 12),
                             mapbox_style="carto-positron",
-                            zoom=3, center = {"lat": 37.0902, "lon": -95.7129},
+                            zoom=3, center = {"lat": -22.26329, "lon": -48.73433},
                             opacity=0.5,
                             labels={'unemp':'unemployment rate'}
                             )
-    fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    # fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     return fig
     
 
