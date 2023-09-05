@@ -58,8 +58,27 @@ connection_string = f'mssql+pyodbc://{username}:{password}@{server}/{database}?d
 engine = create_engine(connection_string)
 
 # cnxn = pyodbc.connect('DRIVER=SQLNCLI11;Data Source=DESKTOP-UVIN3NU;Initial Catalog=Particular;User ID=sa;Password=*casa123;TrustServerCertificate=True')
-query = "SELECT * FROM particular.dbo.TbCoronaVirus With (Nolock) where ISO2 = 'BR' and AdminRegion1 != '' order by updated;"
+query = "exec SP_ScriptCovid"
+
 df = pd.read_sql(query, engine)
+
+    
+def remove_repetidos(lista):
+    l = []
+    for i in lista:
+        if i not in l:
+            l.append(i)
+    l.sort()
+    return l
+
+
+dfAnos = df['Updated'].unique().strftime("%Y")
+dfAnos = remove_repetidos(dfAnos)
+# dfAnos
+
+dfMeses = df['Updated'].unique().strftime("%m")
+dfMeses = remove_repetidos(dfMeses)
+# dfMeses
 
 df2 = df.describe()
 titulo = "Dash Covid"
@@ -88,13 +107,7 @@ app.layout = html.Div(
                     {"label": "Soma", "value": 'sum'}, 
                     {"label": "Média", "value": 'avg'}
                 ], value='sum', id='inputSoma'),
-            ),
-            dbc.Col(
-                dcc.Dropdown(
-                    df["AdminRegion1"].unique(),
-                    value="São Paulo",
-                    id='demo-dropdown'),
-            )
+            ),         
         ]
         ),
         dbc.Row(
@@ -116,9 +129,17 @@ app.layout = html.Div(
         ),
         dbc.Row(
             [
-
                 dash_table.DataTable(data=df2.to_dict('records')),
             ]
+        ),
+        dbc.Row([
+            dbc.Col(
+                dcc.Dropdown(
+                    df["AdminRegion1"].unique(),
+                    value="São Paulo",
+                    id='demo-dropdown'),
+            )
+        ]
         ),
         dbc.Row(
             [
@@ -127,6 +148,9 @@ app.layout = html.Div(
                 ),
                 dbc.Col(
                     dcc.Graph(figure={}, id='graph-linha-data')
+                ),
+                dbc.Col(
+                    dcc.Graph(figure={}, id='graph-linha-data-recovered')
                 ),
             ]
         ),
@@ -137,17 +161,34 @@ app.layout = html.Div(
                 ),
             ]
         ),
-        # html.Div(
-        #     dcc.Slider(
-        #         df['Updated'].min(),
-        #         df['Updated'].max(),
-        #         step=None,
-        #         id='crossfilter-Updated--slider',
-        #         value=df['Updated'].max(),
-        #         marks={str(Updated): str(Updated) for Updated in df['Updated'].unique()}
-        #     ),
-        #     style={'width': '49%', 'padding': '0px 20px 20px 20px'}
-        # )
+        html.Div(
+            dbc.Row(
+                [                    
+                    dbc.Col(
+                        dcc.Slider(
+                            int(min(dfAnos)),
+                            int(max(dfAnos)),
+                            step=1,
+                            id='crossfilter-Updated--slider-Anual',
+                            value=int(max(dfAnos)),
+                            marks={str(up): str(up) for up in dfAnos}
+                        ),
+                        style={'width': '49%', 'padding': '0px 20px 20px 20px'}
+                    ),
+                    dbc.Col(
+                        dcc.Slider(
+                            int(min(dfMeses)),
+                            int(max(dfMeses)),
+                            step=1,
+                            id='crossfilter-Updated--slider-mensal',
+                            value=int(max(dfMeses)),
+                            marks={str(up): str(up) for up in dfMeses}
+                        ),
+                        style={'width': '49%', 'padding': '0px 20px 20px 20px'}
+                    ),                    
+                ]
+            ),            
+        )
     ]
 )
 
@@ -186,7 +227,7 @@ def update_graph_linha(col_chosen, calc_Chosen):
 )
 def update_graph_linha(col_chosen, calc_Chosen, demo_dropdown):
     # fig = px.histogram(df, x='Updated', y=col_chosen, histfunc=calc_Chosen, title= calc_Chosen + " X " + col_chosen)
-    fig = px.line(df[df['AdminRegion1']==demo_dropdown], x='Updated', y=col_chosen, title= demo_dropdown + " X " + col_chosen)
+    fig = px.line(df[df['AdminRegion1']==demo_dropdown], x='Updated', y="ConfirmedChange", title= demo_dropdown + " X ConfirmedChange")
     #.filter(like=dropdownMenu, axis="Updated")
     return fig
 
@@ -198,29 +239,41 @@ def update_graph_linha(col_chosen, calc_Chosen, demo_dropdown):
     Input(component_id='demo-dropdown', component_property='value')
 )
 def update_graph_linha(col_chosen, calc_Chosen, demo_dropdown):    
-    fig = px.scatter(df[df['AdminRegion1']==demo_dropdown], x='Updated', y=col_chosen, title= demo_dropdown + " X " + col_chosen)
+    fig = px.scatter(df[df['AdminRegion1']==demo_dropdown], x='Updated', y="DeathsChange", title= demo_dropdown + " X DeathsChange")
     #.filter(like=dropdownMenu, axis="Updated")
     return fig
 
+
+@app.callback(
+    Output(component_id='graph-linha-data-recovered', component_property='figure'),
+    Input(component_id='itens', component_property='value'),
+    Input(component_id='inputSoma', component_property='value'),
+    Input(component_id='demo-dropdown', component_property='value')
+)
+def update_graph_linha(col_chosen, calc_Chosen, demo_dropdown):    
+    fig = px.scatter(df[df['AdminRegion1']==demo_dropdown], x='Updated', y="RecoveredChange", title= demo_dropdown + " X RecoveredChange")
+    #.filter(like=dropdownMenu, axis="Updated")
+    return fig
+
+
 @app.callback(
     Output(component_id='data-mapa', component_property='figure'),
-    # Input(component_id='itens', component_property='value')
+    Input(component_id='itens', component_property='value'),
     # Input(component_id='inputSoma', component_property='value'),
     Input(component_id='demo-dropdown', component_property='value')
 )
-def plotMap(demo_dropdown):
-    fig = px.choropleth_mapbox(df, 
-                            geojson=counties, 
-                            locations='fips', 
-                            color='unemp',
-                            color_continuous_scale="Viridis",
-                            range_color=(0, 12),
-                            mapbox_style="carto-positron",
-                            zoom=3, center = {"lat": -22.26329, "lon": -48.73433},
-                            opacity=0.5,
-                            labels={'unemp':'unemployment rate'}
-                            )
-    # fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+def plotMap(col_chosen, demo_dropdown):
+    fig = px.scatter_mapbox(
+            df, 
+            lat="Latitude", 
+            lon="Longitude", 
+            hover_name="AdminRegion1", 
+            # hover_data=["Country_Region", col_chosen],
+            color_discrete_sequence=["fuchsia"], 
+            zoom=3, 
+            height=720)
+    fig.update_layout(mapbox_style="open-street-map")
+    fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     return fig
     
 
