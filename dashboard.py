@@ -307,6 +307,7 @@ def plotMap(col_chosen, cores ):
     fig.update_layout(mapbox_style="open-street-map")
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     fig.update_layout(autosize=True, width=1500, height=500)
+    fig.update_traces(cluster=dict(enabled=True))
     return fig
     
 
