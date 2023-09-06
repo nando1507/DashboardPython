@@ -37,6 +37,7 @@ server = app.server
 # https://dash.plotly.com/basic-callbacks
 # graficos
 # https://dash.plotly.com/interactive-graphing
+# https://plotly.com/python/scattermapbox/
 #
 # https://stackoverflow.com/questions/55946082/dash-output-with-multiple-inputs
 # df = pd.read_csv("https://media.githubusercontent.com/media/microsoft/Bing-COVID-19-Data/master/data/Bing-COVID19-Data.csv", delimiter=",", encoding="utf-8")
