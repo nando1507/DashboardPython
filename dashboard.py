@@ -22,6 +22,8 @@ with urlopen('https://raw.githubusercontent.com/plotly/datasets/master/geojson-c
     counties = json.load(response)
 
 counties["features"][0]
+
+colorscales = px.colors.named_colorscales()
 # load_figure_template("MATERIA")
 
 app = dash.Dash(external_stylesheets=[dbc.themes.MATERIA])
@@ -46,15 +48,9 @@ username = 'sa'
 password = '*casa123'
 
 # Criação da string de conexão
-connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
-
-# Estabelecendo a conexão
-conn = pyodbc.connect(connection_string)
-
-# Criação da string de conexão
+# connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
+#conn = pyodbc.connect(connection_string)
 connection_string = f'mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server'
-
-# Criando a conexão
 engine = create_engine(connection_string)
 
 # cnxn = pyodbc.connect('DRIVER=SQLNCLI11;Data Source=DESKTOP-UVIN3NU;Initial Catalog=Particular;User ID=sa;Password=*casa123;TrustServerCertificate=True')
@@ -70,7 +66,6 @@ def remove_repetidos(lista):
             l.append(i)
     l.sort()
     return l
-
 
 dfAnos = df['Updated'].unique().strftime("%Y")
 dfAnos = remove_repetidos(dfAnos)
@@ -90,7 +85,11 @@ app.layout = html.Div(
     children=[
         html.Hr(),
         html.H1(titulo),
-        dbc.Row(dbc.Col(html.Div("Filtros Grafico"))),
+        dbc.Row(
+            dbc.Col(
+                html.Div("Filtros Grafico")
+                )
+            ),
         html.Hr(),
         dbc.Row([
             dbc.Col(
@@ -112,7 +111,7 @@ app.layout = html.Div(
         ),
         dbc.Row(
             [
-                dash_table.DataTable(data=df.to_dict('records'), page_size=27 ),
+                dash_table.DataTable(data=df.to_dict('records'), page_size=15 ),
             ]),
         html.Hr(),
         # dcc.Graph(figure=px.histogram(df, x='continent', y='pop', histfunc='sum'))
@@ -133,22 +132,36 @@ app.layout = html.Div(
             ]
         ),
         dbc.Row([
+            html.Hr(),
+        ]
+        ),
+        dbc.Row([
             dbc.Col(
                 dcc.Dropdown(
                     df["AdminRegion1"].unique(),
                     value="São Paulo",
                     id='demo-dropdown'),
+            ),
+            dbc.Col(
+                dcc.Dropdown(
+                    id='dropdown-colors', 
+                    options=colorscales,
+                    value='earth'
+                ),
             )
         ]
         ),
         dbc.Row(
             [
+                #estado x Confirmado
                 dbc.Col(
                     dcc.Graph(figure={}, id='controls-linha-data')
                 ),
+                #estado x Mortes
                 dbc.Col(
                     dcc.Graph(figure={}, id='graph-linha-data')
                 ),
+                #estado x Recuperados
                 dbc.Col(
                     dcc.Graph(figure={}, id='graph-linha-data-recovered')
                 ),
@@ -157,9 +170,13 @@ app.layout = html.Div(
         dbc.Row(
             [
                 dbc.Col(
-                    dcc.Graph(figure={}, id='data-mapa')
+                    [
+                        dcc.Graph(figure={}, id='data-mapa')
+                    ] 
                 ),
-            ]
+            ],
+            justify="center", 
+            align="center"
         ),
         html.Div(
             dbc.Row(
@@ -218,40 +235,52 @@ def update_graph_linha(col_chosen, calc_Chosen):
     #.filter(like=dropdownMenu, axis="Updated")
     return fig
 
-
+#estado x Confirmado
 @app.callback(
     Output(component_id='controls-linha-data', component_property='figure'),
-    Input(component_id='itens', component_property='value'),
-    Input(component_id='inputSoma', component_property='value'),
-    Input(component_id='demo-dropdown', component_property='value')
+    Input(component_id='demo-dropdown', component_property='value'),
+    Input(component_id='dropdown-colors', component_property='value')
 )
-def update_graph_linha(col_chosen, calc_Chosen, demo_dropdown):
+def update_graph_linha(demo_dropdown, cores):
     # fig = px.histogram(df, x='Updated', y=col_chosen, histfunc=calc_Chosen, title= calc_Chosen + " X " + col_chosen)
-    fig = px.line(df[df['AdminRegion1']==demo_dropdown], x='Updated', y="ConfirmedChange", title= demo_dropdown + " X ConfirmedChange")
+    fig = px.scatter(df[df['AdminRegion1']==demo_dropdown],  
+                    x='Updated', 
+                    y="ConfirmedChange", 
+                    color="ConfirmedChange",
+                    color_continuous_scale=cores,
+                    title= demo_dropdown + " X ConfirmedChange")
     #.filter(like=dropdownMenu, axis="Updated")
     return fig
 
-
+#estado x Mortes
 @app.callback(
-    Output(component_id='graph-linha-data', component_property='figure'),
-    Input(component_id='itens', component_property='value'),
-    Input(component_id='inputSoma', component_property='value'),
-    Input(component_id='demo-dropdown', component_property='value')
+    Output(component_id='graph-linha-data', component_property='figure'),    
+    Input(component_id='demo-dropdown', component_property='value'),
+    Input(component_id='dropdown-colors', component_property='value')
 )
-def update_graph_linha(col_chosen, calc_Chosen, demo_dropdown):    
-    fig = px.scatter(df[df['AdminRegion1']==demo_dropdown], x='Updated', y="DeathsChange", title= demo_dropdown + " X DeathsChange")
+def update_graph_linha(demo_dropdown, cores):    
+    fig = px.scatter(df[df['AdminRegion1']==demo_dropdown], 
+                    x='Updated', 
+                    y="DeathsChange", 
+                    color="DeathsChange",
+                    color_continuous_scale=cores,
+                    title= demo_dropdown + " X DeathsChange")
     #.filter(like=dropdownMenu, axis="Updated")
     return fig
 
-
+#estado x Recuperados
 @app.callback(
     Output(component_id='graph-linha-data-recovered', component_property='figure'),
-    Input(component_id='itens', component_property='value'),
-    Input(component_id='inputSoma', component_property='value'),
-    Input(component_id='demo-dropdown', component_property='value')
+    Input(component_id='demo-dropdown', component_property='value'),
+    Input(component_id='dropdown-colors', component_property='value')
 )
-def update_graph_linha(col_chosen, calc_Chosen, demo_dropdown):    
-    fig = px.scatter(df[df['AdminRegion1']==demo_dropdown], x='Updated', y="RecoveredChange", title= demo_dropdown + " X RecoveredChange")
+def update_graph_linha(demo_dropdown, cores):    
+    fig = px.scatter(df[df['AdminRegion1']==demo_dropdown], 
+                    x='Updated', 
+                    y="RecoveredChange", 
+                    color="RecoveredChange",
+                    color_continuous_scale=cores,
+                    title= demo_dropdown + " X RecoveredChange")
     #.filter(like=dropdownMenu, axis="Updated")
     return fig
 
@@ -260,20 +289,23 @@ def update_graph_linha(col_chosen, calc_Chosen, demo_dropdown):
     Output(component_id='data-mapa', component_property='figure'),
     Input(component_id='itens', component_property='value'),
     # Input(component_id='inputSoma', component_property='value'),
-    Input(component_id='demo-dropdown', component_property='value')
+    Input(component_id='dropdown-colors', component_property='value')
 )
-def plotMap(col_chosen, demo_dropdown):
+def plotMap(col_chosen, cores ):
     fig = px.scatter_mapbox(
-            df, 
+            df,             
             lat="Latitude", 
             lon="Longitude", 
             hover_name="AdminRegion1", 
-            # hover_data=["Country_Region", col_chosen],
-            color_discrete_sequence=["fuchsia"], 
+            size = col_chosen,
+            # hover_data=["Country_Region", "AdminRegion1","ConfirmedChange","DeathsChange","RecoveredChange" ],
+            center = dict(lat=-15.7809896469116, lon=-47.7969589233398),
+            color_continuous_scale= px.colors.cyclical.IceFire,
             zoom=3, 
             height=720)
     fig.update_layout(mapbox_style="open-street-map")
     fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    fig.update_layout(autosize=True, width=1500, height=500)
     return fig
     
 
